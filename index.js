@@ -348,8 +348,13 @@ function gameLoop(playtesting) {
         player.vel.y -= 0.55// * deltaTime * dtCoefficient;
         onGround = false;
     }
+    if (keys[83] || keys[40]) {
+        friction = 0.4;
+    } else {
+        friction = 0.8;
+    }
 
-    player.vel.x *= friction// * deltaTime * dtCoefficient;
+    player.vel.x *= friction// * deltaTime * 1/8;
     // don't mess with yvel if on ground
     if (!onGround) {
         player.vel.y += gravity * deltaTime * dtCoefficient;
@@ -568,14 +573,15 @@ function checkButtonDelay(delay) {
 }
 
 var time;
-var prevTime = Date.now()
+var prevTime = 0;
+var perfectFrameTime = 1000 / 60;
 var deltaTime = 1;
 // var dtCoefficient = 1;
-var dtCoefficient = 1/15;
+var dtCoefficient = 10 / 9;
 
-function update() {
-    deltaTime = ((Date.now() - prevTime));
-    prevTime = Date.now();
+function update(newTime) {
+    deltaTime = ((newTime - prevTime)) / perfectFrameTime;
+    prevTime = newTime;
     // console.log(deltaTime);
     switch (screenNum) {
         // title
@@ -852,8 +858,8 @@ function drawTitleRect(x, y, w, h) {
     ctx.fillRect((x - 1) * 18.75, (y - 1) * 18.75, w * 18.75 + 1, h * 18.75 + 1);
 }
 
-function main() {
-    update();
+function main(timestamp) {
+    update(timestamp);
     requestAnimationFrame(main);
 }
 requestAnimationFrame(main);

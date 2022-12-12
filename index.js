@@ -580,8 +580,9 @@ var deltaTime = 1;
 var dtCoefficient = 10 / 9;
 
 function update(newTime) {
-    deltaTime = ((newTime - prevTime)) / perfectFrameTime;
-    prevTime = newTime;
+    // deltaTime = ((newTime - prevTime)) / perfectFrameTime;
+    deltaTime = ((Date.now() - prevTime)) / perfectFrameTime;
+    prevTime = Date.now();
     // console.log(deltaTime);
     switch (screenNum) {
         // title

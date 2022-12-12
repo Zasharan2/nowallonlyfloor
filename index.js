@@ -349,7 +349,7 @@ function gameLoop(playtesting) {
         onGround = false;
     }
     if (keys[83] || keys[40]) {
-        friction = 1.6;
+        friction = 3.2;
     } else {
         friction = 0.8;
     }

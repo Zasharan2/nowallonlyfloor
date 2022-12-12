@@ -349,12 +349,13 @@ function gameLoop(playtesting) {
         onGround = false;
     }
     if (keys[83] || keys[40]) {
-        friction = 0.4;
+        friction = 1.6;
     } else {
         friction = 0.8;
     }
 
-    player.vel.x *= friction// * deltaTime * 1/8;
+    player.vel.x *= Math.pow(Math.E, deltaTime * -0.4 * friction);
+    // player.vel.x *= friction// * deltaTime * 1/8;
     // don't mess with yvel if on ground
     if (!onGround) {
         player.vel.y += gravity * deltaTime * dtCoefficient;

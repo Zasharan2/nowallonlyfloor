@@ -35,6 +35,8 @@ window.addEventListener("mouseup", function(){
 var screenLength = 600;
 var screenNum = 0;
 
+var tritanopiaMode = false;
+
 var tileWidth = screenLength / 30;
 
 class Vector {
@@ -84,6 +86,7 @@ class Block {
         this.vel = new Vector(0, 0);
         this.onGround = false;
         this.prev = new Vector(x, y);
+        this.waterfriction = 0;
     }
 }
 
@@ -95,7 +98,6 @@ var spawnPoint = new Vector(2, 27);
 
 var gravity = 0.05;
 var friction = 0.8;
-var waterfriction = 0;
 
 // inclusive
 function pushLine(x1, y1, x2, y2, type) {
@@ -364,7 +366,7 @@ function gameLoop(playtesting) {
         player.vel.x += 0.14 * deltaTime * dtCoefficient;
     }
     if ((keys[87] || keys[38]) && collisionCheck && checkButtonDelay(100)) {
-        player.vel.y -= 0.55 * (1 - (waterfriction / 3.2))// * deltaTime * dtCoefficient;
+        player.vel.y -= 0.55 * (1 - (player.waterfriction / 3.2))// * deltaTime * dtCoefficient;
         player.onGround = false;
     }
     if (keys[83] || keys[40]) {
@@ -378,16 +380,16 @@ function gameLoop(playtesting) {
     player.vel.x *= Math.pow(Math.E, deltaTime * -0.4 * friction);
     // player.vel.x *= friction// * deltaTime * 1/8;
 
-    waterfriction = 0;
+    player.waterfriction = 0;
     for (var i = 0; i < TileList.length; i++) {
         if (TileList[i].type == TileType.WATER) {
             if (AABBCorn(new Rect(player.tile.pos.x, player.tile.pos.y, tileWidth, tileWidth), new Rect(TileList[i].pos.x, TileList[i].pos.y, tileWidth, tileWidth))) {
-                waterfriction = 3.2;
+                player.waterfriction = 3.2;
             }
         }
     }
-    player.vel.x *= Math.pow(Math.E, deltaTime * -0.4 * waterfriction);
-    player.vel.y *= Math.pow(Math.E, deltaTime * -0.4 * waterfriction);
+    player.vel.x *= Math.pow(Math.E, deltaTime * -0.4 * player.waterfriction);
+    player.vel.y *= Math.pow(Math.E, deltaTime * -0.4 * player.waterfriction);
 
     // don't mess with yvel if on ground
     if (!player.onGround) {
@@ -617,6 +619,18 @@ var block;
 function blockLoop() {
     for (var r = 0; r < blockList.length; r++) {
         block = blockList[r];
+
+        block.waterfriction = 0;
+        for (var i = 0; i < TileList.length; i++) {
+            if (TileList[i].type == TileType.WATER) {
+                if (AABBCorn(new Rect(block.tile.pos.x, block.tile.pos.y, tileWidth, tileWidth), new Rect(TileList[i].pos.x, TileList[i].pos.y, tileWidth, tileWidth))) {
+                    block.waterfriction = 3.2;
+                }
+            }
+        }
+        block.vel.x *= Math.pow(Math.E, deltaTime * -0.4 * block.waterfriction);
+        block.vel.y *= Math.pow(Math.E, deltaTime * -0.4 * block.waterfriction);
+
         // don't mess with yvel if on ground
         if (!block.onGround) {
             block.vel.y += gravity * deltaTime * dtCoefficient;
@@ -710,6 +724,24 @@ function blockLoop() {
                 block.tile.pos.y = Math.floor(block.tile.pos.y);
             }
             block.vel.y = 0;
+        }
+
+        if (AABBCorn(new Rect(player.tile.pos.x, player.tile.pos.y, tileWidth, tileWidth), new Rect(block.tile.pos.x, block.tile.pos.y, tileWidth, tileWidth))) {
+            if (player.tile.pos.x <= block.tile.pos.x) {
+                block.tile.pos.x = player.tile.pos.x + 1.000001;
+            } else {
+                block.tile.pos.x = player.tile.pos.x - 1.000001;
+            }
+            // check pushed into wall
+            collisionCheck = false;
+            points = [];
+            for (var i = 0; i < TileList.length; i++) {
+                if (AABBMid(new Rect(block.tile.pos.x, block.tile.pos.y, tileWidth, tileWidth), new Rect(TileList[i].pos.x, TileList[i].pos.y, tileWidth, tileWidth))) {
+                    if (points.includes(1) || points.includes(3)) {
+                        blockList.splice(blockList.indexOf(block), 1);
+                    }
+                }
+            }
         }
 
         drawTile(block.tile);
@@ -904,7 +936,11 @@ function drawTile(tile) {
             break;
         }
         case TileType.GOAL: {
-            ctx.fillStyle = "rgba(255, 255, 0)";
+            if (tritanopiaMode) {
+                ctx.fillStyle = "rgba(0, 0, 255)"; // temp fix
+            } else {
+                ctx.fillStyle = "rgba(255, 255, 0)";
+            }
             break;
         }
         case TileType.LAVA: {

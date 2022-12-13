@@ -51,7 +51,9 @@ const TileType = {
     GOAL: 3,
     LAVA: 4,
     GRASS: 5,
-    STONE: 6
+    STONE: 6,
+    WATER: 7,
+    BLOCK: 8
 }
 
 const FloorTypes = [TileType.WALL, TileType.GRASS, TileType.STONE];
@@ -76,21 +78,24 @@ class Tile {
     }
 }
 
-class Player {
-    constructor(x, y) {
-        this.tile = new Tile(x, y, TileType.PLAYER);
+class Block {
+    constructor(x, y, type) {
+        this.tile = new Tile(x, y, type);
         this.vel = new Vector(0, 0);
+        this.onGround = false;
+        this.prev = new Vector(x, y);
     }
 }
 
 var prevTileList = [];
 var TileList = [];
 
-var player = new Player(2, 27);
+var player = new Block(2, 27, TileType.PLAYER);
 var spawnPoint = new Vector(2, 27);
 
 var gravity = 0.05;
 var friction = 0.8;
+var waterfriction = 0;
 
 // inclusive
 function pushLine(x1, y1, x2, y2, type) {
@@ -136,18 +141,34 @@ function removePoint(x, y) {
 }
 
 function findSpawn() {
+    j = []
     for (var i = 0; i < TileList.length; i++) {
         if (TileList[i].type == TileType.PLAYER) {
             spawnPoint.x = TileList[i].pos.x;
             spawnPoint.y = TileList[i].pos.y;
-            break;
+            j.push(i - j.length);
         }
     }
     // remove spawnpoints from showing onscreen after play
+    for (var i = 0; i < j.length; i++) {
+        TileList.splice(j[i], 1);
+    }
+
+    findBlocks();
+}
+
+var blockList = [];
+function findBlocks() {
+    blockList = [];
+    j = [];
     for (var i = 0; i < TileList.length; i++) {
-        if (TileList[i].type == TileType.PLAYER) {
-            TileList.splice(i, 1);
+        if (TileList[i].type == TileType.BLOCK) {
+            blockList.push(new Block(TileList[i].pos.x, TileList[i].pos.y, TileType.BLOCK));
+            j.push(i - j.length);
         }
+    }
+    for (var i = 0; i < j.length; i++) {
+        TileList.splice(j[i], 1);
     }
 }
 
@@ -325,9 +346,7 @@ function codeToLevel(code) {
     drawMap();
 }
 
-var prev = new Vector(0, 0);
 var collisionCheck = false;
-var onGround = false;
 
 var level = 1;
 
@@ -345,8 +364,8 @@ function gameLoop(playtesting) {
         player.vel.x += 0.14 * deltaTime * dtCoefficient;
     }
     if ((keys[87] || keys[38]) && collisionCheck && checkButtonDelay(100)) {
-        player.vel.y -= 0.55// * deltaTime * dtCoefficient;
-        onGround = false;
+        player.vel.y -= 0.55 * (1 - (waterfriction / 3.2))// * deltaTime * dtCoefficient;
+        player.onGround = false;
     }
     if (keys[83] || keys[40]) {
         friction = 3.2;
@@ -354,10 +373,24 @@ function gameLoop(playtesting) {
         friction = 0.8;
     }
 
+    blockLoop();
+
     player.vel.x *= Math.pow(Math.E, deltaTime * -0.4 * friction);
     // player.vel.x *= friction// * deltaTime * 1/8;
+
+    waterfriction = 0;
+    for (var i = 0; i < TileList.length; i++) {
+        if (TileList[i].type == TileType.WATER) {
+            if (AABBCorn(new Rect(player.tile.pos.x, player.tile.pos.y, tileWidth, tileWidth), new Rect(TileList[i].pos.x, TileList[i].pos.y, tileWidth, tileWidth))) {
+                waterfriction = 3.2;
+            }
+        }
+    }
+    player.vel.x *= Math.pow(Math.E, deltaTime * -0.4 * waterfriction);
+    player.vel.y *= Math.pow(Math.E, deltaTime * -0.4 * waterfriction);
+
     // don't mess with yvel if on ground
-    if (!onGround) {
+    if (!player.onGround) {
         player.vel.y += gravity * deltaTime * dtCoefficient;
         // clamp yvel
         if (player.vel.y > 1) {
@@ -379,13 +412,13 @@ function gameLoop(playtesting) {
         }
 
         if (!points.includes(2)) {
-            onGround = false;
+            player.onGround = false;
         }
 
         player.tile.pos.y -= gravity;
     }
 
-    prev = player.tile.pos;
+    player.prev = player.tile.pos;
 
     player.tile.pos.x += player.vel.x * deltaTime * dtCoefficient;
     player.tile.pos.y += player.vel.y * deltaTime * dtCoefficient;
@@ -412,12 +445,12 @@ function gameLoop(playtesting) {
                 player.tile.pos.y = spawnPoint.y;
                 player.vel.x = 0;
                 player.vel.y = 0;
-                onGround = false;
+                player.onGround = false;
             }
         }
         if (TileList[i].type == TileType.GOAL) {
             if (AABBCorn(new Rect(player.tile.pos.x, player.tile.pos.y, tileWidth, tileWidth), new Rect(TileList[i].pos.x, TileList[i].pos.y, tileWidth, tileWidth))) {
-                onGround = false;
+                player.onGround = false;
                 if (playtesting) {
                     setTileListFromPrev();
                     screenNum = 3.2;
@@ -444,7 +477,7 @@ function gameLoop(playtesting) {
         player.tile.pos.y = spawnPoint.y;
         player.vel.x = 0;
         player.vel.y = 0;
-        onGround = false;
+        player.onGround = false;
     }
 
     // collision
@@ -459,9 +492,9 @@ function gameLoop(playtesting) {
     }
 
     if (collisionCheck) {
-        player.tile.pos = prev;
+        player.tile.pos = player.prev;
         // if specifically touching on bottom (2) collision point
-        // check x vel not greater than y vel
+        // 
         if (points.includes(2) ){
             // repeatedly move player up until no longer colliding
             while (points.includes(2)) {
@@ -487,7 +520,7 @@ function gameLoop(playtesting) {
                     }
                 }
             }
-            onGround = true;
+            player.onGround = true;
             player.tile.pos.y = Math.floor(player.tile.pos.y);
         }
         player.vel.y = 0;
@@ -500,6 +533,12 @@ function gameLoop(playtesting) {
             ty = TileList[i].pos.y;
             TileList[i].pos.x = 29 - tx;
             TileList[i].pos.y = 29 - ty;
+        }
+        for (var i = 0; i < blockList.length; i++) {
+            tx = blockList[i].tile.pos.x;
+            ty = blockList[i].tile.pos.y;
+            blockList[i].tile.pos.x = 29 - tx;
+            blockList[i].tile.pos.y = 29 - ty;
         }
         tx = player.tile.pos.x;
         ty = player.tile.pos.y;
@@ -529,7 +568,7 @@ function gameLoop(playtesting) {
                 }
             }
         }
-        onGround = true;
+        player.onGround = true;
         player.tile.pos.y = Math.floor(player.tile.pos.y);
     }
     if (points.includes(1) && !(points.includes(0))) {
@@ -539,6 +578,12 @@ function gameLoop(playtesting) {
             ty = TileList[i].pos.y;
             TileList[i].pos.x = 29 - ty;
             TileList[i].pos.y = tx;
+        }
+        for (var i = 0; i < blockList.length; i++) {
+            tx = blockList[i].tile.pos.x;
+            ty = blockList[i].tile.pos.y;
+            blockList[i].tile.pos.x = 29 - ty;
+            blockList[i].tile.pos.y = tx;
         }
         tx = player.tile.pos.x;
         ty = player.tile.pos.y;
@@ -553,6 +598,12 @@ function gameLoop(playtesting) {
             TileList[i].pos.x = ty;
             TileList[i].pos.y = 29 - tx;
         }
+        for (var i = 0; i < blockList.length; i++) {
+            tx = blockList[i].tile.pos.x;
+            ty = blockList[i].tile.pos.y;
+            blockList[i].tile.pos.x = ty;
+            blockList[i].tile.pos.y = 29 - tx;
+        }
         tx = player.tile.pos.x;
         ty = player.tile.pos.y;
         player.tile.pos.x = ty;
@@ -560,6 +611,109 @@ function gameLoop(playtesting) {
     }
     
     drawTile(player.tile);
+}
+
+var block;
+function blockLoop() {
+    for (var r = 0; r < blockList.length; r++) {
+        block = blockList[r];
+        // don't mess with yvel if on ground
+        if (!block.onGround) {
+            block.vel.y += gravity * deltaTime * dtCoefficient;
+            // clamp yvel
+            if (block.vel.y > 1) {
+                block.vel.y = 1;
+            }
+            // block.vel.y *= friction;
+        } else {
+            block.tile.pos.y += gravity;
+
+            // collision
+            collisionCheck = false;
+            points = [];
+            for (var i = 0; i < TileList.length; i++) {
+                if (FloorTypes.indexOf(TileList[i].type) > -1) {
+                    if (AABBMid(new Rect(block.tile.pos.x, block.tile.pos.y, tileWidth, tileWidth), new Rect(TileList[i].pos.x, TileList[i].pos.y, tileWidth, tileWidth))) {
+                        collisionCheck = true;
+                    }
+                }
+            }
+
+            if (!points.includes(2)) {
+                block.onGround = false;
+            }
+
+            block.tile.pos.y -= gravity;
+        }
+
+        block.prev = block.tile.pos;
+
+        block.tile.pos.x += block.vel.x * deltaTime * dtCoefficient;
+        block.tile.pos.y += block.vel.y * deltaTime * dtCoefficient;
+        
+        // lava side check
+        collisionCheck = false;
+        points = [];
+        for (var i = 0; i < TileList.length; i++) {
+            if (TileList[i].type == TileType.LAVA) {
+                AABBMid(new Rect(block.tile.pos.x, block.tile.pos.y, tileWidth, tileWidth), new Rect(TileList[i].pos.x, TileList[i].pos.y, tileWidth, tileWidth));
+            }
+        }
+
+        if (points.includes(1) || points.includes(3)) {
+            blockList.splice(blockList.indexOf(block), 1);
+        }
+
+        // collision
+        collisionCheck = false;
+        points = [];
+        for (var i = 0; i < TileList.length; i++) {
+            if (FloorTypes.indexOf(TileList[i].type) > -1) {
+                if (AABBMid(new Rect(block.tile.pos.x, block.tile.pos.y, tileWidth, tileWidth), new Rect(TileList[i].pos.x, TileList[i].pos.y, tileWidth, tileWidth))) {
+                    if (points.includes(2)) {
+                        collisionCheck = true;
+                    }
+                }
+            }
+        }
+
+        if (collisionCheck) {
+            block.tile.pos = block.prev;
+            // if specifically touching on bottom (2) collision point
+            // 
+            if (points.includes(2) ){
+                // repeatedly move player up until no longer colliding
+                while (points.includes(2)) {
+                    block.tile.pos.y -= 0.01;
+                    collisionCheck = false;
+                    points = [];
+                    for (var i = 0; i < TileList.length; i++) {
+                        if (FloorTypes.indexOf(TileList[i].type) > -1) {
+                            if (AABBMid(new Rect(block.tile.pos.x, block.tile.pos.y, tileWidth, tileWidth), new Rect(TileList[i].pos.x, TileList[i].pos.y, tileWidth, tileWidth))) {
+                                collisionCheck = true;
+                            }
+                        }
+                    }
+                }
+                // move back so that we're still actually touching ground
+                block.tile.pos.y += 0.01;
+                collisionCheck = false;
+                points = [];
+                for (var i = 0; i < TileList.length; i++) {
+                    if (FloorTypes.indexOf(TileList[i].type) > -1) {
+                        if (AABBMid(new Rect(block.tile.pos.x, block.tile.pos.y, tileWidth, tileWidth), new Rect(TileList[i].pos.x, TileList[i].pos.y, tileWidth, tileWidth))) {
+                            collisionCheck = true;
+                        }
+                    }
+                }
+                block.onGround = true;
+                block.tile.pos.y = Math.floor(block.tile.pos.y);
+            }
+            block.vel.y = 0;
+        }
+
+        drawTile(block.tile);
+    }
 }
 
 var buttonDelay = Date.now();
@@ -659,6 +813,12 @@ function update(newTime) {
             if (keys[54] && checkButtonDelay(25)) {
                 setPoint(Math.floor(mouseX / 20), Math.floor(mouseY / 20), TileType.STONE);
             }
+            if (keys[55] && checkButtonDelay(25)) {
+                setPoint(Math.floor(mouseX / 20), Math.floor(mouseY / 20), TileType.WATER);
+            }
+            if (keys[56] && checkButtonDelay(25)) {
+                setPoint(Math.floor(mouseX / 20), Math.floor(mouseY / 20), TileType.BLOCK);
+            }
 
             if (keys[67] && checkButtonDelay(150)) {
                 levelToCode();
@@ -679,7 +839,7 @@ function update(newTime) {
             player.vel.x = 0;
             player.vel.y = 0;
             screenNum = 3;
-            onGround = false;
+            player.onGround = false;
             break;
         }
         // level test
@@ -688,7 +848,7 @@ function update(newTime) {
 
             if (keys[32] && checkButtonDelay(150)) {
                 setTileListFromPrev();
-                onGround = false;
+                player.onGround = false;
                 screenNum = 3.2;
             }
             break;
@@ -757,6 +917,14 @@ function drawTile(tile) {
         }
         case TileType.STONE: {
             ctx.fillStyle = "rgba(127, 127, 127)";
+            break;
+        }
+        case TileType.WATER: {
+            ctx.fillStyle = "rgba(0, 0, 255)";
+            break;
+        }
+        case TileType.BLOCK: {
+            ctx.fillStyle = "rgba(190, 170, 110)";
             break;
         }
         default: {

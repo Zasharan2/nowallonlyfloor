@@ -55,7 +55,8 @@ const TileType = {
     GRASS: 5,
     STONE: 6,
     WATER: 7,
-    BLOCK: 8
+    BLOCK: 8,
+    HOLE: 9
 }
 
 const FloorTypes = [TileType.WALL, TileType.GRASS, TileType.STONE];
@@ -452,12 +453,14 @@ function gameLoop(playtesting) {
         }
         if (TileList[i].type == TileType.GOAL) {
             if (AABBCorn(new Rect(player.tile.pos.x, player.tile.pos.y, tileWidth, tileWidth), new Rect(TileList[i].pos.x, TileList[i].pos.y, tileWidth, tileWidth))) {
-                player.onGround = false;
-                if (playtesting) {
-                    setTileListFromPrev();
-                    screenNum = 3.2;
-                } else {
-                    screenNum = 1.4;
+                if (checkHoles()) {
+                    player.onGround = false;
+                    if (playtesting) {
+                        setTileListFromPrev();
+                        screenNum = 3.2;
+                    } else {
+                        screenNum = 1.4;
+                    }
                 }
             }
         }
@@ -615,6 +618,24 @@ function gameLoop(playtesting) {
     drawTile(player.tile);
 }
 
+var holeChecked = false;
+function checkHoles() {
+    for (var i = 0; i < TileList.length; i++) {
+        if (TileList[i].type == TileType.HOLE) {
+            holeChecked = false;
+            for (var j = 0; j < blockList.length; j++) {
+                if (AABBCorn(new Rect(blockList[j].tile.pos.x, blockList[j].tile.pos.y, tileWidth, tileWidth), new Rect(TileList[i].pos.x, TileList[i].pos.y, tileWidth, tileWidth))) {
+                    holeChecked = true;
+                }
+            }
+            if (!holeChecked) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
 var block;
 function blockLoop() {
     for (var r = 0; r < blockList.length; r++) {
@@ -736,9 +757,13 @@ function blockLoop() {
             collisionCheck = false;
             points = [];
             for (var i = 0; i < TileList.length; i++) {
-                if (AABBMid(new Rect(block.tile.pos.x, block.tile.pos.y, tileWidth, tileWidth), new Rect(TileList[i].pos.x, TileList[i].pos.y, tileWidth, tileWidth))) {
-                    if (points.includes(1) || points.includes(3)) {
-                        blockList.splice(blockList.indexOf(block), 1);
+                if (FloorTypes.indexOf(TileList[i].type) > -1 || TileList[i].type == TileType.BLOCK) {
+                    if (AABBMid(new Rect(block.tile.pos.x, block.tile.pos.y, tileWidth, tileWidth), new Rect(TileList[i].pos.x, TileList[i].pos.y, tileWidth, tileWidth))) {
+                        if (points.includes(1) || points.includes(3)) {
+                            blockList.splice(r, 1);
+                            console.log(r);
+                            break;
+                        }
                     }
                 }
             }
@@ -851,6 +876,9 @@ function update(newTime) {
             if (keys[56] && checkButtonDelay(25)) {
                 setPoint(Math.floor(mouseX / 20), Math.floor(mouseY / 20), TileType.BLOCK);
             }
+            if (keys[57] && checkButtonDelay(25)) {
+                setPoint(Math.floor(mouseX / 20), Math.floor(mouseY / 20), TileType.HOLE);
+            }
 
             if (keys[67] && checkButtonDelay(150)) {
                 levelToCode();
@@ -960,7 +988,11 @@ function drawTile(tile) {
             break;
         }
         case TileType.BLOCK: {
-            ctx.fillStyle = "rgba(190, 170, 110)";
+            ctx.fillStyle = "rgba(255, 0, 255)";
+            break;
+        }
+        case TileType.HOLE: {
+            ctx.fillStyle = "rgba(127, 0, 255)";
             break;
         }
         default: {

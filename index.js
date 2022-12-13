@@ -752,7 +752,7 @@ function drawTile(tile) {
             break;
         }
         case TileType.GRASS: {
-            ctx.fillStyle = "rgba(0, 255, 0)";
+            ctx.fillStyle = "rgba(0, 255, 127)";
             break;
         }
         case TileType.STONE: {

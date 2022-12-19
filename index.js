@@ -60,16 +60,13 @@ const TileType = {
 const FloorTypes = [TileType.WALL, TileType.GRASS, TileType.STONE];
 
 /* block ideas
-
     block that rotates the screen upon contact
     block that allows double jump when player is inside of it
     water block (slows down movement including falling when player inside of it)
     grass block (spreads to nearby blocks when player stands on it, turning them to grass (like mc moss block))
     stone block (only block that can resist grass block (except air ig :/))
     block block (can be pushed by player (maybe dissolves in lava? then there could be some interesting grass lava block block mechanics))
-
     level introducing grass name: The lava is floor (idea from The floor is lava)
-
 */
 
 class Tile {
@@ -430,7 +427,7 @@ function gameLoop(playtesting) {
             // adding 0.0000000000000003 to the y positions to correct float rounding
             if (AABBCorn(new Rect(player.tile.pos.x, player.tile.pos.y + 0.0000000000000003, tileWidth, tileWidth), new Rect(TileList[i].pos.x, TileList[i].pos.y, tileWidth, tileWidth))) {
                 for (var j = 0; j < TileList.length; j++) {
-                    if (((TileList[j].pos.x == TileList[i].pos.x + 1) || (TileList[j].pos.x == TileList[i].pos.x - 1)) && ((TileList[j].pos.y == TileList[i].pos.y || TileList[j].pos.y == TileList[i].pos.y - 1) && AABBCorn(new Rect(player.tile.pos.x, player.tile.pos.y + 0.0000000000000003, tileWidth, tileWidth), new Rect(TileList[j].pos.x, TileList[j].pos.y, tileWidth, tileWidth)))) {
+                    if (((TileList[j].pos.x == TileList[i].pos.x + 1) || (TileList[j].pos.x == TileList[i].pos.x - 1)) && ((Math.round(TileList[j].pos.y) == Math.round(TileList[i].pos.y) || Math.round(TileList[j].pos.y) == Math.round(TileList[i].pos.y - 1)) && AABBCorn(new Rect(player.tile.pos.x, player.tile.pos.y + 0.0000000000000003, tileWidth, tileWidth), new Rect(TileList[j].pos.x, TileList[j].pos.y, tileWidth, tileWidth)))) {
                         if (TileList[j].type != TileType.STONE) {
                             TileList[j].type = TileType.GRASS;
                         }
@@ -438,6 +435,9 @@ function gameLoop(playtesting) {
                 }
             }
         }
+    }
+    // has to be split into two for loops so that lava checks occur after all grass checks have
+    for (var i = 0; i < TileList.length; i++) {
         if (TileList[i].type == TileType.LAVA) {
             if (AABBCornLava(new Rect(player.tile.pos.x, player.tile.pos.y, tileWidth, tileWidth), new Rect(TileList[i].pos.x, TileList[i].pos.y, tileWidth, tileWidth))) {
                 setTileListFromPrev();
@@ -501,7 +501,7 @@ function gameLoop(playtesting) {
         if (points.includes(2) ){
             // repeatedly move player up until no longer colliding
             while (points.includes(2)) {
-                player.tile.pos.y -= 0.01;
+                player.tile.pos.y -= 0.001;
                 collisionCheck = false;
                 points = [];
                 for (var i = 0; i < TileList.length; i++) {
@@ -513,7 +513,7 @@ function gameLoop(playtesting) {
                 }
             }
             // move back so that we're still actually touching ground
-            player.tile.pos.y += 0.01;
+            player.tile.pos.y += 0.001;
             collisionCheck = false;
             points = [];
             for (var i = 0; i < TileList.length; i++) {
@@ -524,7 +524,7 @@ function gameLoop(playtesting) {
                 }
             }
             player.onGround = true;
-            player.tile.pos.y = Math.floor(player.tile.pos.y);
+//            player.tile.pos.y = Math.floor(player.tile.pos.y);
         }
         player.vel.y = 0;
     }

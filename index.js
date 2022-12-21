@@ -759,7 +759,6 @@ function blockLoop() {
                     if (AABBMid(new Rect(block.tile.pos.x, block.tile.pos.y, tileWidth, tileWidth), new Rect(TileList[i].pos.x, TileList[i].pos.y, tileWidth, tileWidth))) {
                         if (points.includes(1) || points.includes(3)) {
                             blockList.splice(r, 1);
-                            console.log(r);
                             break;
                         }
                     }

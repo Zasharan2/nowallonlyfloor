@@ -9,6 +9,9 @@ window.addEventListener("keyup", this.globalKeyReleased, false);
 var keys = []
 
 function globalKeyPressed(event){
+    if (event.keyCode == 32 || event.keyCode == 38 || event.keyCode == 40) {
+        event.preventDefault();
+    }
     keys[event.keyCode] = true;
 }
 function globalKeyReleased(event){
@@ -34,6 +37,12 @@ window.addEventListener("mouseup", function(){
 
 var screenLength = 600;
 var screenNum = 0;
+
+var advanceAudio = new Audio('sounds/advance.wav');
+var dieAudio = new Audio('sounds/die.wav');
+var grassAudio = new Audio('sounds/grass.wav');
+var jumpAudio = new Audio('sounds/jump.wav');
+var rotateAudio = new Audio('sounds/rotate.wav');
 
 var tileWidth = screenLength / 30;
 
@@ -320,16 +329,34 @@ function AABBCorn(rect1, rect2) {
 
 var displayCode = document.getElementById("displayCode");
 var codeForm = document.getElementById("codeForm");
-var gameCode
+var gameCode;
 codeForm.addEventListener("submit", (e) => {
     e.preventDefault();
     e.stopImmediatePropagation();
 
-    gameCode = String(document.forms["codeForm"]["textInput"].value);
+    gameCode = String(document.forms["codeForm"]["codeInput"].value);
 
     codeToLevel(gameCode);
 
     codeForm.reset();
+});
+
+var levelSelectForm = document.getElementById("levelSelectForm");
+levelSelectForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    e.stopImmediatePropagation();
+
+    level = Number(document.forms["levelSelectForm"]["levelSelectInput"].value)
+    loadMap(level);
+    setPrevFromTileList();
+    findSpawn();
+    player.tile.pos.x = spawnPoint.x;
+    player.tile.pos.y = spawnPoint.y;
+    player.vel.x = 0;
+    player.vel.y = 0;
+    screenNum = 1;
+
+    levelSelectForm.reset();
 });
 
 function levelToCode() {
@@ -369,6 +396,9 @@ function gameLoop(playtesting) {
     if ((keys[87] || keys[38]) && collisionCheck && checkButtonDelay(100)) {
         player.vel.y -= 0.55 * (1 - (player.waterfriction / 3.2))// * deltaTime * dtCoefficient;
         player.onGround = false;
+        if (player.waterfriction != 3.2) {
+            jumpAudio.cloneNode(true).play();
+        }
     }
     if (keys[83] || keys[40]) {
         friction = 3.2;
@@ -434,6 +464,10 @@ function gameLoop(playtesting) {
                 for (var j = 0; j < TileList.length; j++) {
                     if (((TileList[j].pos.x == TileList[i].pos.x + 1) || (TileList[j].pos.x == TileList[i].pos.x - 1)) && ((Math.round(TileList[j].pos.y) == Math.round(TileList[i].pos.y) || Math.round(TileList[j].pos.y) == Math.round(TileList[i].pos.y - 1)) && AABBCorn(new Rect(player.tile.pos.x, player.tile.pos.y + 0.0000000000000003, tileWidth, tileWidth), new Rect(TileList[j].pos.x, TileList[j].pos.y, tileWidth, tileWidth)))) {
                         if (TileList[j].type != TileType.STONE) {
+                            // only play sound when newly grown
+                            if (TileList[j].type != TileType.GRASS) {
+                                grassAudio.cloneNode(true).play();
+                            }
                             TileList[j].type = TileType.GRASS;
                         }
                     }
@@ -452,6 +486,7 @@ function gameLoop(playtesting) {
                 player.vel.x = 0;
                 player.vel.y = 0;
                 player.onGround = false;
+                dieAudio.cloneNode(true).play();
             }
         }
         if (TileList[i].type == TileType.GOAL) {
@@ -464,6 +499,7 @@ function gameLoop(playtesting) {
                     } else {
                         screenNum = 1.4;
                     }
+                    advanceAudio.cloneNode(true).play();
                 }
             }
         }
@@ -486,6 +522,7 @@ function gameLoop(playtesting) {
         player.vel.x = 0;
         player.vel.y = 0;
         player.onGround = false;
+        dieAudio.cloneNode(true).play();
     }
 
     // collision
@@ -535,6 +572,7 @@ function gameLoop(playtesting) {
     }
 
     if (points.includes(0) && !points.includes(2)) {
+        rotateAudio.cloneNode(true).play();
         var tx, ty;
         for (var i = 0; i < TileList.length; i++) {
             tx = TileList[i].pos.x;
@@ -580,6 +618,7 @@ function gameLoop(playtesting) {
         player.tile.pos.y = Math.floor(player.tile.pos.y);
     }
     if (points.includes(1) && !(points.includes(0))) {
+        rotateAudio.cloneNode(true).play();
         var tx, ty;
         for (var i = 0; i < TileList.length; i++) {
             tx = TileList[i].pos.x;
@@ -599,6 +638,7 @@ function gameLoop(playtesting) {
         player.tile.pos.y = tx;
     }
     if (points.includes(3) && !(points.includes(0))) {
+        rotateAudio.cloneNode(true).play();
         var tx, ty;
         for (var i = 0; i < TileList.length; i++) {
             tx = TileList[i].pos.x;
